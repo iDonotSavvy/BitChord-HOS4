@@ -59,6 +59,12 @@ object LyriconBridge {
     private var lastSentPosition = 0L
     private var lastSentAt = 0L
 
+    // Whether register() went through, and when; see refreshLink.
+    private var registerOk = false
+    private var registeredAt = 0L
+    private var linked = false
+    private var lastLinkCheckAt = 0L
+
     /**
      * Called once the service is up. Follows the settings switch from then on:
      * on connects and resends what is playing, off disconnects.
@@ -87,7 +93,8 @@ object LyriconBridge {
     @Synchronized
     fun tick(isPlaying: Boolean, positionMs: Long) {
         val p = provider ?: return
-        if (!_connected.value) return
+        refreshLink(p)
+        if (!linked) return
         runCatching {
             if (isPlaying != lastPlaying) {
                 lastPlaying = isPlaying
@@ -121,42 +128,65 @@ object LyriconBridge {
                 context = context,
                 logo = ProviderLogo.fromDrawable(context, R.drawable.ic_notification_logo),
             )
-            p.service.addConnectionListener {
-                onConnected { onLinked() }
-                onReconnected { onLinked() }
-                onDisconnected { _connected.value = false }
-                onConnectTimeout {
-                    _connected.value = false
-                    Log.w(TAG, "No Lyricon central service answered. Is HyperLyrics Enhanced active in LSPosed?")
-                }
-            }
             provider = p
-            val registered = p.register()
-            Log.i(TAG, "register() = $registered")
+            // Whether register() says yes or no is read as a Boolean when it is
+            // one; the SDK's documentation is not clear that it is.
+            registerOk = (p.register() as Any?) as? Boolean ?: true
+            registeredAt = System.currentTimeMillis()
+            lastLinkCheckAt = 0L
+            Log.i(TAG, "register() accepted = $registerOk")
         }.onFailure { Log.w(TAG, "could not start the Lyricon provider", it) }
     }
 
     @Synchronized
     private fun disconnect() {
         _connected.value = false
+        linked = false
+        registerOk = false
         lastPlaying = null
         provider?.let { runCatching { it.destroy() } }
         provider = null
     }
 
-    @Synchronized
-    private fun onLinked() {
-        Log.i(TAG, "connected to Lyricon")
-        _connected.value = true
-        lastPlaying = null
-        pushSong()
+    /**
+     * Works out whether Lyricon is on the other end, about once a second, and
+     * sends the current song the moment it is.
+     *
+     * The SDK documents a connection listener, but its DSL form did not
+     * compile against the version this builds with. So the state is read
+     * from the SDK's own connection status by reflection instead, which cannot
+     * break the build. If that is not readable, a provider that registered is
+     * taken as connected after a short grace period.
+     */
+    private fun refreshLink(p: LyriconProvider) {
+        val now = System.currentTimeMillis()
+        if (now - lastLinkCheckAt < LINK_CHECK_MS) return
+        lastLinkCheckAt = now
+
+        val reported = readConnected(p)
+        val nowLinked = reported ?: (registerOk && now - registeredAt > GRACE_MS)
+        if (nowLinked == linked) return
+        linked = nowLinked
+        _connected.value = nowLinked
+        Log.i(TAG, if (nowLinked) "linked to Lyricon (status read: $reported)" else "lost the link to Lyricon")
+        if (nowLinked) {
+            lastPlaying = null
+            pushSong()
+        }
     }
+
+    /** The SDK's own connection status, or null where it cannot be read. */
+    private fun readConnected(p: LyriconProvider): Boolean? = runCatching {
+        val service = p.javaClass.getMethod("getService").invoke(p) ?: return null
+        val status = service.javaClass.getMethod("getConnectionStatus").invoke(service) ?: return null
+        status.javaClass.getMethod("isConnected").invoke(status) as? Boolean
+    }.getOrNull()
 
     // --- what goes over --------------------------------------------------------
 
     private fun pushSong() {
         val p = provider ?: return
-        if (!_connected.value) return
+        if (!linked) return
         runCatching {
             val s = song
             if (s == null) {
@@ -244,5 +274,7 @@ object LyriconBridge {
     }
 
     private const val DRIFT_MS = 700L
+    private const val LINK_CHECK_MS = 1_000L
+    private const val GRACE_MS = 2_500L
     private const val LAST_LINE_FALLBACK_MS = 8_000L
 }
