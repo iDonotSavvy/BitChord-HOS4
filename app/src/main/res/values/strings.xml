@@ -399,6 +399,9 @@
     <string name="artist_signatures_test_failed">Could not reach the API at that URL</string>
     <string name="synced_lyrics">Synced lyrics</string>
     <string name="synced_lyrics_subtitle">Lights up the words on the player as they’re sung</string>
+    <string name="hyper_island_lyrics">Lyrics in HyperIsland</string>
+    <string name="hyper_island_lyrics_subtitle">Shows the current line in Xiaomi’s Super Island while a song plays. Needs Focus notifications allowed for BitChord.</string>
+    <string name="hyper_island_channel_name">Lyrics in HyperIsland</string>
     <string name="lyrics_sources">Lyrics sources</string>
     <string name="song_cache_limit">Song cache limit</string>
     <string name="clear_song_cache">Clear song cache</string>

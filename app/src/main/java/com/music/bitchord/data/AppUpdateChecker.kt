@@ -66,6 +66,7 @@ object AppUpdateChecker {
     private var downloadCancelled = false
 
     suspend fun check() = withContext(Dispatchers.IO) {
+        if (!BuildConfig.UPDATE_CHECK_ENABLED) return@withContext Result.success(Unit)
         runCatching {
             val request = Request.Builder().url(LATEST_RELEASE_URL).build()
             val body = Http.client.newCall(request).execute().use { response ->

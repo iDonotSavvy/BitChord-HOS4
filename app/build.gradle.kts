@@ -101,6 +101,9 @@ android {
         // the same GitHub release, told apart by file name. See
         // AppUpdateChecker.apkAssetUrl.
         buildConfigField("String", "UPDATE_APK_PREFIX", "\"BitChord-\"")
+        // Whether the app asks the upstream GitHub project for newer releases.
+        // Off in the hos4 fork, which has releases of its own to follow.
+        buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "true")
     }
 
     splits {
@@ -138,6 +141,20 @@ android {
         create("prod") {
             dimension = "env"
             // Matches defaultConfig — this is the package already shipped/installed.
+        }
+        // The HyperOS 4 fork. Its own package, so it installs beside both the
+        // original (com.music.bitchord) and upstream's dev build
+        // (com.dev.bitchord) rather than replacing either, and keeps its own
+        // data, login and settings. Only applicationId changes: the Kotlin
+        // package stays com.music.bitchord, so merging upstream stays easy.
+        // Build it with `./gradlew installHos4Debug`.
+        create("hos4") {
+            dimension = "env"
+            applicationId = "com.idonotsavvy.bitchord.hos4"
+            resValue("string", "app_name", "BitChord HOS4")
+            // Upstream's releases are for upstream's package, so an "update"
+            // from there would install the original app, not this one.
+            buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "false")
         }
     }
 
@@ -536,6 +553,9 @@ abstract class BundleWearApk : DefaultTask() {
 if (providers.gradleProperty("bitchord.bundleWear").orNull != "false" && findProject(":wearos") != null) {
     androidComponents.onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "env" }?.second ?: return@onVariants
+        // The watch app pairs by package name with a matching phone build, and
+        // there is no hos4 watch build to bundle.
+        if (flavor == "hos4") return@onVariants
         val type = variant.buildType ?: return@onVariants
         // The benchmark build has no watch counterpart.
         if (type != "debug" && type != "release") return@onVariants

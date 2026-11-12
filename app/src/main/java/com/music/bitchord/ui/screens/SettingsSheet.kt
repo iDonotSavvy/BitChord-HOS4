@@ -258,6 +258,7 @@ fun SettingsScreen(
     val fullBleedDetailArtwork by AppSettings.fullBleedDetailArtwork.collectAsStateWithLifecycle()
     val playerTheme by AppSettings.playerTheme.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val hyperIslandLyrics by AppSettings.hyperIslandLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
@@ -1275,6 +1276,24 @@ fun SettingsScreen(
             // sources are third-party services being reached on the user's
             // connection — which is the part worth being able to narrow.
             if (syncedLyrics) {
+                // Only offered where there is an island to show it on.
+                if (remember(context) { com.music.bitchord.playback.HyperIslandLyrics.deviceSupportsIsland(context) }) {
+                    val hyperIslandTitle = stringResource(R.string.hyper_island_lyrics)
+                    row(hyperIslandTitle, "lyrics", "island", "hyperos", "xiaomi") {
+                        SettingsRow(
+                            icon = SfIcons.Notes,
+                            title = hyperIslandTitle,
+                            subtitle = stringResource(R.string.hyper_island_lyrics_subtitle),
+                            trailing = {
+                                IosSwitch(
+                                    checked = hyperIslandLyrics,
+                                    onCheckedChange = AppSettings::setHyperIslandLyrics,
+                                )
+                            },
+                            onClick = { AppSettings.setHyperIslandLyrics(!hyperIslandLyrics) },
+                        )
+                    }
+                }
                 val lyricsBlurTitle = stringResource(R.string.blur_unfocused_lyrics)
                 row(lyricsBlurTitle, "lyrics", "blur") {
                     SettingsRow(

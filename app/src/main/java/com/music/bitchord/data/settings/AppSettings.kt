@@ -619,6 +619,13 @@ object AppSettings {
      */
     val syncedLyrics = MutableStateFlow(true)
 
+    /**
+     * Whether the current lyric line is also shown in Xiaomi's HyperIsland.
+     * Only does anything on a HyperOS device with Focus notifications allowed,
+     * and only while [syncedLyrics] is on.
+     */
+    val hyperIslandLyrics = MutableStateFlow(true)
+
     /** The databases [syncedLyrics] may ask. Empty is the same as off. */
     val lyricsSources = MutableStateFlow(LyricsSource.offered.toSet())
 
@@ -1074,6 +1081,7 @@ object AppSettings {
             )
         }.getOrDefault(LastPlayerScreen.MAIN)
         syncedLyrics.value = prefs.getBoolean(KEY_SYNCED_LYRICS, true)
+        hyperIslandLyrics.value = prefs.getBoolean(KEY_HYPER_ISLAND_LYRICS, true)
         lyricsSources.value = readLyricsSources()
         lyricsSourceOrder.value = readLyricsSourceOrder()
         prioritizeSyllableSync.value = prefs.getBoolean(KEY_PRIORITIZE_SYLLABLE_SYNC, false)
@@ -1564,6 +1572,11 @@ object AppSettings {
     fun setTranslationLanguage(value: String) {
         translationLanguage.value = value
         prefs.edit().putString(KEY_TRANSLATION_LANGUAGE, value).apply()
+    }
+
+    fun setHyperIslandLyrics(value: Boolean) {
+        hyperIslandLyrics.value = value
+        prefs.edit().putBoolean(KEY_HYPER_ISLAND_LYRICS, value).apply()
     }
 
     fun setSyncedLyrics(value: Boolean) {
@@ -2324,6 +2337,7 @@ object AppSettings {
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
     private const val KEY_SYNCED_LYRICS = "synced_lyrics"
+    private const val KEY_HYPER_ISLAND_LYRICS = "hyper_island_lyrics"
     private const val KEY_LYRICS_SOURCES = "lyrics_sources"
     private const val KEY_LYRICS_SOURCES_SEEN = "lyrics_sources_seen"
     private const val KEY_LYRICS_SOURCE_ORDER = "lyrics_source_order"

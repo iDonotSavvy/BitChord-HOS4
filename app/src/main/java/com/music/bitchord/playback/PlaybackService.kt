@@ -846,6 +846,9 @@ class PlaybackService : MediaLibraryService() {
     private var serviceLyricsJob: Job? = null
     private var serviceLyrics: List<LyricLine>? = null
     private var lastPublishedSubtitle: String? = null
+
+    /** The current lyric line on Xiaomi's Super Island. Inert off HyperOS. */
+    private val hyperIsland by lazy { HyperIslandLyrics(this) { sessionActivity() } }
     private var lyricsTickerJob: Job? = null
 
     /**
@@ -7843,6 +7846,7 @@ class PlaybackService : MediaLibraryService() {
         publishWidgetState(playing = false)
         lyricsTickerJob?.cancel()
         lyricsTickerJob = null
+        hyperIsland.clear()
         serviceLyricsJob?.cancel()
         serviceLyricsJob = null
         serviceLyrics = null
@@ -7976,6 +7980,9 @@ class PlaybackService : MediaLibraryService() {
     private fun stopLyricsTicker() {
         lyricsTickerJob?.cancel()
         lyricsTickerJob = null
+        // Paused, stopped or lyrics off: the island has nothing to say. This
+        // also covers the no-media case updateLyricSubtitle returns early on.
+        hyperIsland.clear()
         updateLyricSubtitle()
     }
 
@@ -7996,6 +8003,8 @@ class PlaybackService : MediaLibraryService() {
             currentSong.artist
         }
 
+        updateHyperIsland(exoPlayer, currentSong, lines, pos)
+
         if (subtitleText != lastPublishedSubtitle) {
             lastPublishedSubtitle = subtitleText
             // buildUpon() off the metadata that's already playing, not a fresh
@@ -8012,6 +8021,29 @@ class PlaybackService : MediaLibraryService() {
                 .setSubtitle(subtitleText)
                 .build()
         }
+    }
+
+    /**
+     * Mirrors the line being sung onto the HyperIsland. Shown only while a
+     * song with synced lyrics is playing; a gap between lines reads as a note,
+     * and a song with no lyrics leaves the island to the media notification.
+     */
+    private fun updateHyperIsland(
+        exoPlayer: Player,
+        song: Song,
+        lines: List<LyricLine>?,
+        positionMs: Long,
+    ) {
+        if (!exoPlayer.isPlaying ||
+            lines.isNullOrEmpty() ||
+            !AppSettings.syncedLyrics.value ||
+            !AppSettings.hyperIslandLyrics.value
+        ) {
+            hyperIsland.clear()
+            return
+        }
+        val line = lines.getOrNull(lines.indexOfLast { it.timeMs <= positionMs })
+        hyperIsland.show(song.title, song.artist, line?.text.orEmpty())
     }
 
     /**
