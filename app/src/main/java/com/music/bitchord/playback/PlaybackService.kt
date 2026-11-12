@@ -1309,6 +1309,8 @@ class PlaybackService : MediaLibraryService() {
         measuredBitrateCache.clear()
         QualityUpgrade.forgetLastSession()
 
+        LyriconBridge.attach(this)
+
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider.Builder(this)
                 .setChannelId(CHANNEL_ID)
@@ -7847,6 +7849,7 @@ class PlaybackService : MediaLibraryService() {
         lyricsTickerJob?.cancel()
         lyricsTickerJob = null
         hyperIsland.clear()
+        LyriconBridge.release()
         serviceLyricsJob?.cancel()
         serviceLyricsJob = null
         serviceLyrics = null
@@ -7926,17 +7929,23 @@ class PlaybackService : MediaLibraryService() {
     private fun loadLyricsForCurrentTrack() {
         val currentSong = player?.currentMediaItem?.toSong() ?: run {
             serviceLyrics = null
-            stopLyricsTicker()
-            return
-        }
-
-        if (!AppSettings.syncedLyrics.value) {
-            serviceLyrics = null
+            LyriconBridge.setTrack(null, null, 0L)
             stopLyricsTicker()
             return
         }
 
         val trackDurationMs = (player?.duration ?: 0L).takeIf { it > 0 } ?: 0L
+
+        if (!AppSettings.syncedLyrics.value) {
+            serviceLyrics = null
+            LyriconBridge.setTrack(currentSong, null, trackDurationMs)
+            stopLyricsTicker()
+            return
+        }
+
+        // The new song's name goes over at once, so the last song's lyrics do
+        // not stay up while this one's are looked for.
+        LyriconBridge.setTrack(currentSong, null, trackDurationMs)
 
         serviceLyricsJob?.cancel()
         serviceLyricsJob = scope.launch(Dispatchers.IO) {
@@ -7960,6 +7969,11 @@ class PlaybackService : MediaLibraryService() {
             }
             withContext(Dispatchers.Main) {
                 serviceLyrics = lines
+                LyriconBridge.setTrack(
+                    currentSong,
+                    lines,
+                    (player?.duration ?: 0L).takeIf { it > 0 } ?: trackDurationMs,
+                )
                 if (player?.isPlaying == true) {
                     updateLyricSubtitle()
                 }
@@ -8003,6 +8017,7 @@ class PlaybackService : MediaLibraryService() {
             currentSong.artist
         }
 
+        LyriconBridge.tick(exoPlayer.isPlaying, pos)
         updateHyperIsland(exoPlayer, currentSong, lines, pos)
 
         if (subtitleText != lastPublishedSubtitle) {
@@ -8034,6 +8049,12 @@ class PlaybackService : MediaLibraryService() {
         lines: List<LyricLine>?,
         positionMs: Long,
     ) {
+        // Lyricon is drawing the lyrics already, without the notification's
+        // width limit; a second copy in the island would only get in the way.
+        if (LyriconBridge.connected.value) {
+            hyperIsland.clear()
+            return
+        }
         if (!exoPlayer.isPlaying ||
             lines.isNullOrEmpty() ||
             !AppSettings.syncedLyrics.value ||

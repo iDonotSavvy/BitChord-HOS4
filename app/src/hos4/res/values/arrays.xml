@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- What BitChord sends to Lyricon, shown on its provider page. -->
+    <string-array name="lyricon_module_tags">
+        <item>$syllable</item>
+    </string-array>
+</resources>

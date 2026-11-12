@@ -151,11 +151,22 @@ android {
         create("hos4") {
             dimension = "env"
             applicationId = "com.idonotsavvy.bitchord.hos4"
+            // Lyricon's provider SDK needs Android 8.1. Raised for this flavor
+            // alone, so the dev and prod builds keep reaching API 26.
+            minSdk = 27
             resValue("string", "app_name", "BitChord HOS4")
             // Upstream's releases are for upstream's package, so an "update"
             // from there would install the original app, not this one.
             buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "false")
         }
+    }
+
+    // The do-nothing LyriconBridge for the builds that do not carry the SDK.
+    // The hos4 flavor has the real one in src/hos4. After productFlavors on
+    // purpose: the flavors' source sets do not exist before they are declared.
+    sourceSets {
+        getByName("dev") { java.srcDir("src/stub/java") }
+        getByName("prod") { java.srcDir("src/stub/java") }
     }
 
     signingConfigs {
@@ -295,6 +306,10 @@ val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>
 dependencies {
     implementation(project(":shared"))
     implementation(project(":sharedUi"))
+
+    // Sends lyrics to Lyricon, the service behind HyperLyrics Enhanced. Only
+    // the hos4 flavor has it; see LyriconBridge.
+    "hos4Implementation"("io.github.proify.lyricon:provider:0.1.68")
 
     // ---- Compose (Material 3) ----
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")

@@ -259,6 +259,8 @@ fun SettingsScreen(
     val playerTheme by AppSettings.playerTheme.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val hyperIslandLyrics by AppSettings.hyperIslandLyrics.collectAsStateWithLifecycle()
+    val lyriconProvider by AppSettings.lyriconProvider.collectAsStateWithLifecycle()
+    val lyriconConnected by com.music.bitchord.playback.LyriconBridge.connected.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
@@ -1291,6 +1293,26 @@ fun SettingsScreen(
                                 )
                             },
                             onClick = { AppSettings.setHyperIslandLyrics(!hyperIslandLyrics) },
+                        )
+                    }
+                }
+                if (com.music.bitchord.playback.LyriconBridge.isAvailable) {
+                    val lyriconTitle = stringResource(R.string.lyricon_lyrics)
+                    row(lyriconTitle, "lyrics", "lyricon", "hyperlyrics", "island", "lsposed") {
+                        SettingsRow(
+                            icon = SfIcons.Notes,
+                            title = lyriconTitle,
+                            subtitle = stringResource(
+                                if (lyriconConnected) R.string.lyricon_lyrics_connected
+                                else R.string.lyricon_lyrics_not_connected,
+                            ),
+                            trailing = {
+                                IosSwitch(
+                                    checked = lyriconProvider,
+                                    onCheckedChange = AppSettings::setLyriconProvider,
+                                )
+                            },
+                            onClick = { AppSettings.setLyriconProvider(!lyriconProvider) },
                         )
                     }
                 }
